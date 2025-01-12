@@ -12,61 +12,80 @@ import (
 
 func TestDecodeBint64(t *testing.T) {
 
+	assert := assert.New(t)
+	require := require.New(t)
 	tcs := []struct {
 		name     string
 		input    string
 		expected int64
+		err      error
 	}{
 		{
 			name:     "test zero",
 			input:    "i0e",
 			expected: 0,
+			err:      nil,
 		},
 		{
 			name:     "test -1",
 			input:    "i-1e",
 			expected: -1,
+			err:      nil,
 		},
 		{
 			name:     "test 1",
 			input:    "i1e",
 			expected: 1,
+			err:      nil,
 		},
 		{
 			name:     "test 11",
 			input:    "i11e",
 			expected: 11,
+			err:      nil,
 		},
 		{
 			name:     "test -11",
 			input:    "i-11e",
 			expected: -11,
+			err:      nil,
 		},
 		{
 			name:     "test max int64 value",
 			input:    fmt.Sprintf("i%ve", math.MaxInt64),
 			expected: math.MaxInt64,
+			err:      nil,
 		},
 		{
-			name:     "test max int64 value",
+			name:     "test min int64 value",
 			input:    fmt.Sprintf("i%ve", math.MaxInt64),
 			expected: math.MaxInt64,
+			err:      nil,
+		},
+		{
+			name:     "test impossible value",
+			input:    "ie",
+			expected: 0,
+			err:      fmt.Errorf("shortest bint64 is of len 3, buffer len: %v", 2),
+		},
+		{
+			name:     "test empty string",
+			input:    "",
+			expected: 0,
+			err:      fmt.Errorf("shortest bint64 is of len 3, buffer len: %v", 0),
 		},
 	}
 
 	for _, tc := range tcs {
 		t.Run(tc.name, func(t *testing.T) {
 			value, _, err := DecodeBInt64([]byte(tc.input))
-			if err != nil {
-				t.Fatalf("got error in testcase: %v, e: %v", tc, err)
-			}
 
-			val, ok := value.(BInt64)
-			if !ok {
-				t.Fatalf("cannot convert bencode to bint64")
+			if tc.err == nil {
+				require.Nil(err, "expecting nil error, got non nil error: %s", err)
+				assert.Equal(value, BInt64(tc.expected))
+			} else {
+				assert.Equal(err, tc.err)
 			}
-
-			require.Equal(t, int64(val), tc.expected, "want: %v got: %v", tc.expected, int64(val))
 		})
 	}
 }
@@ -91,12 +110,7 @@ func TestDecodeBString(t *testing.T) {
 				t.Fatalf("got error in testcase: %v, e: %v", tc, err)
 			}
 
-			val, ok := value.(BString)
-			if !ok {
-				t.Fatalf("cannot convert bencode to bstring")
-			}
-
-			if string(val) != tc.tcString {
+			if string(value) != tc.tcString {
 				t.Errorf("want: %v got: %v", tc.tcString, value)
 			}
 		})
