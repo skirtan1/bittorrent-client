@@ -2,6 +2,7 @@ package bencode
 
 import (
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 )
@@ -201,12 +202,20 @@ func EncodeBList(v BList) ([]byte, error) {
 func EncodeBMap(v BMap) ([]byte, error) {
 	ret := make([]byte, 0)
 
-	for key, value := range v {
+	keys := make([]BString, 0)
+	for key := range v {
+		keys = append(keys, key)
+	}
+
+	slices.Sort(keys)
+
+	for _, key := range keys {
 		encKey, err := Encode(key)
 		if err != nil {
 			return nil, err
 		}
 
+		value := v[key]
 		encVal, err := Encode(value)
 		if err != nil {
 			return nil, err
