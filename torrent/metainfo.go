@@ -22,6 +22,7 @@ type File struct {
 }
 
 type Info struct {
+	Name        string
 	PieceLength int64
 	Pieces      [][20]byte
 	Length      int64
@@ -112,6 +113,15 @@ func DecodeInfoFromBencode(b bencode.Bencode) (*Info, error) {
 		slog.Error("decode info error", "err", err)
 		return nil, err
 	}
+
+	name, ok := value[bencode.BString("name")]
+	if !ok {
+		err := fmt.Errorf("unable to get name from info bencode: %w", ErrKeyNotPresent)
+		slog.Error("decode info error", "err", err)
+		return nil, err
+	}
+
+	ret.Name = string(name.(bencode.BString))
 
 	pieceslength, ok := value[bencode.BString("piece length")]
 	if !ok {
