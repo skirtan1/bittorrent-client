@@ -1,2 +1,1 @@
-# bittorrent-client
-A bittorrent client for the cli
+A bittorrent client from the cli

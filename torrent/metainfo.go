@@ -8,7 +8,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/skirtan1/bittorrent/bencode"
+	"github.com/skirtan1/bittorrent-client/bencode"
 )
 
 type Metainfo struct {
