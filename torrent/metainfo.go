@@ -4,14 +4,14 @@ import (
 	"crypto/sha1"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
-	"os"
 	"path/filepath"
 
 	"github.com/skirtan1/bittorrent-client/bencode"
 )
 
-type Metainfo struct {
+type MetaInfo struct {
 	Announce string
 	Info     Info
 }
@@ -179,10 +179,10 @@ func DecodeInfoFromBencode(b bencode.Bencode) (*Info, error) {
 	return &ret, nil
 }
 
-func DecodeMetaInfoFromBencode(b bencode.Bencode) (*Metainfo, error) {
+func DecodeMetaInfoFromBencode(b bencode.Bencode) (*MetaInfo, error) {
 	value, ok := b.(bencode.BMap)
 
-	ret := Metainfo{}
+	ret := MetaInfo{}
 	if !ok {
 		err := fmt.Errorf("unable to construct bmap from bencode: %w", ErrTypeAssertionFromBencode)
 		slog.Error("decode metainfo error", "err", err)
@@ -214,9 +214,9 @@ func DecodeMetaInfoFromBencode(b bencode.Bencode) (*Metainfo, error) {
 	return &ret, nil
 }
 
-func GetMetaInfoFromTorrentFile(torrentFilePath string) (*Metainfo, error) {
+func GetMetaInfoFromTorrentFile(r io.Reader) (*MetaInfo, error) {
 
-	data, err := os.ReadFile(torrentFilePath)
+	data, err := io.ReadAll(r)
 	if err != nil {
 		return nil, fmt.Errorf("error building metainfo from torrentfile: %w", err)
 	}

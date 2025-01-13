@@ -1,9 +1,12 @@
 package torrent
 
 import (
+	"bytes"
 	"crypto/sha1"
 	"errors"
 	"fmt"
+	"io"
+	"log/slog"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -12,7 +15,12 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+var (
+	torrentFile []byte = []byte(fmt.Sprintf("d8:announce41:http://bttracker.debian.org:6969/announce4:infod6:lengthi351272960e4:name31:debian-10.2.0-amd64-netinst.iso12:piece lengthi262144e6:pieces26800:%see", strings.Repeat("a", 26800)))
+)
+
 func TestDecodeFilesFromBencode(t *testing.T) {
+	slog.SetDefault(slog.New(slog.NewTextHandler(io.Discard, nil)))
 
 	require := require.New(t)
 
@@ -75,6 +83,7 @@ func TestDecodeFilesFromBencode(t *testing.T) {
 }
 
 func TestDecodeFilesInfoFromBencode(t *testing.T) {
+	slog.SetDefault(slog.New(slog.NewTextHandler(io.Discard, nil)))
 
 	require := require.New(t)
 	tcs := []struct {
@@ -148,6 +157,7 @@ func TestDecodeFilesInfoFromBencode(t *testing.T) {
 }
 
 func TestDecodeInfoFromBencode(t *testing.T) {
+	slog.SetDefault(slog.New(slog.NewTextHandler(io.Discard, nil)))
 
 	tests := []struct {
 		name         string
@@ -259,6 +269,7 @@ func TestDecodeInfoFromBencode(t *testing.T) {
 }
 
 func TestDecodeMetaInfo(t *testing.T) {
+	slog.SetDefault(slog.New(slog.NewTextHandler(io.Discard, nil)))
 
 	info := bencode.BMap{
 		bencode.BString("name"):         bencode.BString("temp"),
@@ -292,7 +303,7 @@ func TestDecodeMetaInfo(t *testing.T) {
 	tests := []struct {
 		name         string
 		bencodeInput bencode.Bencode
-		expectedMeta *Metainfo
+		expectedMeta *MetaInfo
 		err          error
 	}{
 		{
@@ -301,7 +312,7 @@ func TestDecodeMetaInfo(t *testing.T) {
 				bencode.BString("announce"): bencode.BString("here i come"),
 				bencode.BString("info"):     info,
 			},
-			expectedMeta: &Metainfo{
+			expectedMeta: &MetaInfo{
 				Announce: "here i come",
 				Info:     *infoStruct,
 			},
@@ -338,6 +349,72 @@ func TestDecodeMetaInfo(t *testing.T) {
 			} else {
 				require.Nil(t, err)
 				require.Equal(t, val, tt.expectedMeta)
+			}
+		})
+	}
+}
+
+func TestGetMetaInfoFromTorrentFile(t *testing.T) {
+	slog.SetDefault(slog.New(slog.NewTextHandler(io.Discard, nil)))
+
+	meta := &MetaInfo{
+		Announce: "http://bttracker.debian.org:6969/announce",
+		Info: Info{
+			Name:        "debian-10.2.0-amd64-netinst.iso",
+			Length:      351272960,
+			PieceLength: 262144,
+		},
+	}
+
+	func(t *testing.T, meta *MetaInfo) {
+		t.Helper()
+
+		for i := 0; i < 1340; i += 1 {
+			meta.Info.Pieces = append(meta.Info.Pieces, [20]byte{'a', 'a', 'a', 'a', 'a', 'a', 'a', 'a', 'a', 'a',
+				'a', 'a', 'a', 'a', 'a', 'a', 'a', 'a', 'a', 'a'})
+		}
+
+		benc := bencode.BMap{
+			bencode.BString("name"):         bencode.BString("debian-10.2.0-amd64-netinst.iso"),
+			bencode.BString("length"):       bencode.BInt64(351272960),
+			bencode.BString("piece length"): bencode.BInt64(262144),
+			bencode.BString("pieces"):       bencode.BString(strings.Repeat("a", 26800)),
+		}
+
+		dec, err := bencode.Encode(benc)
+
+		if err != nil {
+			t.Error(err)
+		}
+
+		meta.Info.InfoHash = sha1.Sum(dec)
+	}(t, meta)
+
+	tests := []struct {
+		name     string
+		file     io.Reader
+		expected *MetaInfo
+		err      error
+	}{
+		{
+			name:     "valid file",
+			file:     bytes.NewReader(torrentFile),
+			expected: meta,
+			err:      nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := GetMetaInfoFromTorrentFile(tt.file)
+
+			if tt.err != nil {
+				require.Error(t, err)
+				require.True(t, errors.Is(err, tt.err))
+				require.Nil(t, result)
+			} else {
+				require.Nil(t, err)
+				require.Equal(t, tt.expected, result)
 			}
 		})
 	}
